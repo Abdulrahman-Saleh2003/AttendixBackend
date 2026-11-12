@@ -1,0 +1,48 @@
+# ==============================================================================
+# ATTENDIX / BASMATI - project/.gitignore
+# ==============================================================================
+
+# 1. ملفات البيئة والأسرار
+.env
+.env.*
+!.env.example
+*.env
+local_settings.py
+
+# 2. قواعد البيانات المحلية
+*.sqlite3
+*.sqlite3-journal
+*.db
+*.sql
+*.dump
+dump.json
+db.sqlite3
+
+# 3. بيئات بايثون الافتراضية
+venv/
+.venv/
+env/
+Lib/
+Scripts/
+Include/
+pyvenv.cfg
+
+# 4. كاش ومخرجات تشغيل بايثون
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+
+# 5. مجلد static_root وميديا المستخدمين
+media/
+uploads/
+static_root/
+staticfiles/
+
+# 6. ملفات المحررات والأنظمة
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

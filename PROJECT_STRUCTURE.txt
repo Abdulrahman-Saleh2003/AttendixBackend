@@ -1,0 +1,141 @@
+================================================================================
+   هيكلية مشروع بصمتي (Attendix Backend Architecture) - الإصدار الاحترافي 1.0
+================================================================================
+
+مسار المشروع:
+D:\antigravity Projects\Attendix\AttendixBackEnd\project
+
+--------------------------------------------------------------------------------
+1. المجلدات والملفات العامة في المشروع:
+--------------------------------------------------------------------------------
+project/
+│
+├── .env                      # ملف المتغيرات السرية وقيم الإعدادات (لا يُرفع للغيت هب)
+├── .env.example              # نموذج توضيحي لمتغيرات البيئة (يُرفع للغيت هب)
+├── .gitignore                # استثناء الملفات الحساسة والمؤقتة من التتبع
+├── GITHUB_INSTRUCTIONS.txt   # دليل وخطوات رفع المشروع إلى GitHub
+├── PROJECT_STRUCTURE.txt     # هذا الملف (شرح الهيكلية المعمارية الكاملة)
+├── manage.py                 # نقطة تشغيل أوامر دجانغو
+├── db.sqlite3                # قاعدة البيانات المحلية (SQLite)
+│
+├── project/                  # إعدادات المشروع الأساسية
+│   ├── __init__.py
+│   ├── asgi.py
+│   ├── wsgi.py
+│   ├── settings.py           # الإعدادات المربوطة بـ .env و DRF و JWT و CORS
+│   └── urls.py               # موجه المسارات العام للـ API (Root URLs)
+│
+├── accounts/                 # [وحدة الحسابات، السوبر أدمن، والمصادقة]
+│   ├── __init__.py
+│   ├── apps.py
+│   ├── models.py             # نموذج المستخدم Custom User المبني على البريد الإلكتروني
+│   ├── permissions.py        # الصلاحيات (IsSuperAdminUser, IsAdminUser, IsEmployeeUser...)
+│   ├── serializers.py        # سيريالايزرز تسجيل الدخول بالـ JWT وإنشاء وإدارة المدراء
+│   ├── views.py              # الـ Views الخاصة بالسوبر أدمن والملف الشخصي والتوكنات
+│   ├── urls.py               # مسارات الـ Accounts API
+│   ├── admin.py              # تهيئة لوحة تحكم Django Admin للمستخدمين
+│   └── management/
+│       └── commands/
+│           └── seed_superadmin.py # أمر إنشاء السوبر أدمن تلقائياً من .env
+│
+├── organization/             # [وحدة الهيكل التنظيمي والمواقع والورديات]
+│   ├── __init__.py
+│   ├── apps.py
+│   ├── models.py             # نماذج: الأقسام (Department)، مواقع العمل (Worksite)، الورديات (Shift)
+│   ├── serializers.py        # سيريالايزرز الهيكل والمواقع ونطاقات الـ GPS
+│   ├── views.py              # CRUD Views للمدراء لإدارة الفروع ومواقيت الدوام
+│   ├── urls.py               # مسارات /api/org/
+│   └── admin.py
+│
+├── employees/                # [وحدة الموظفين والأجهزة المعتمدة]
+│   ├── __init__.py
+│   ├── apps.py
+│   ├── models.py             # نماذج: Employee، RegisteredDevice (Device Binding)، ShiftAssignment
+│   ├── serializers.py        # سيريالايزرز تسجيل الموظف واعتماد الهواتف
+│   ├── views.py              # Views تسجيل الموظف، اعتماد الهواتف من الإدارة، وتعيين الورديات
+│   ├── urls.py               # مسارات /api/employees/
+│   └── admin.py
+│
+└── attendance/               # [وحدة الحضور والانصراف، الطلبات، والتدقيق الرقابي]
+    ├── __init__.py
+    ├── apps.py
+    ├── models.py             # نماذج: AttendanceDay, AttendanceEvent, EmployeeRequest, AuditLog
+    ├── utils.py              # دالة Haversine لحساب المسافة الجغرافية بين الهاتف وموقع العمل
+    ├── serializers.py        # سيريالايزرز تسجيل البصمة والطلبات وسجل الرقابة
+    ├── views.py              # معالجة البصمة بالـ GPS، إحصائيات Dashboard، ومراجعة الطلبات
+    ├── urls.py               # مسارات /api/attendance/
+    └── admin.py
+
+--------------------------------------------------------------------------------
+2. خارطة الـ Endpoints (واجهات الـ REST API المتاحة):
+--------------------------------------------------------------------------------
+
+أ. وحدة الحسابات والمصادقة (/api/accounts/):
+---------------------------------------------
+1. POST /api/accounts/login/
+   - تسجيل الدخول بالبريد الإلكتروني وكلمة المرور والحصول على JWT Access & Refresh Tokens.
+2. POST /api/accounts/token/refresh/
+   - تجديد التوكن (Access Token) عند انتهائه.
+3. GET, PUT /api/accounts/profile/
+   - استعراض وتحديث بيانات الملف الشخصي للمستخدم الحالي.
+4. POST /api/accounts/change-password/
+   - تغيير كلمة المرور للمستخدم المسجل دخوله.
+5. GET, POST /api/accounts/superadmin/admins/
+   - [خاص بالسوبر أدمن]: استعراض جميع المدراء، وإنشاء مدير (Admin) أو نائب مدير جديد.
+6. GET, PATCH, DELETE /api/accounts/superadmin/admins/<id>/
+   - [خاص بالسوبر أدمن]: تعديل صلاحيات المدير، تفعيله، أو إيقافه.
+
+ب. وحدة الهيكل التنظيمي والمواقع (/api/org/):
+---------------------------------------------
+1. GET /api/org/available/        # جلب قائمة جميع المنشآت النشطة وأكوادها ليعرضها تطبيق الموظف
+2. /api/org/departments/      (GET, POST)
+3. /api/org/departments/<id>/ (GET, PUT, PATCH, DELETE)
+4. /api/org/worksites/        (GET, POST)   # تحديد مواقع العمل وإحداثيات GPS ونصف القطر
+5. /api/org/worksites/<id>/   (GET, PUT, PATCH, DELETE)
+6. /api/org/shifts/           (GET, POST)   # تحديد الورديات ومواعيد الدوام وفترة السماح
+7. /api/org/shifts/<id>/      (GET, PUT, PATCH, DELETE)
+
+ج. وحدة الموظفين والأجهزة (/api/employees/):
+---------------------------------------------
+1. POST /api/employees/register/
+   - تسجيل حساب موظف جديد من تطبيق الجوال.
+2. GET, POST /api/employees/join-requests/
+   - GET: استعراض حالة انضمام الموظف الحالية وسجل طلباته السابقة.
+   - POST: إرسال طلب انضمام لمنشأة محددة عبر كودها (ممنوع إرسال طلب ثانٍ إذا كان هناك طلب معلق إلا إذا رُفض).
+3. GET /api/employees/admin/join-requests/
+   - [المدير]: استعراض طلبات الانضمام الواردة لمنشأته فقط (مع فلترة ?status=PENDING).
+4. POST /api/employees/admin/join-requests/<id>/decide/
+   - [المدير]: قبول (APPROVE) أو رفض (REJECT) انضمام الموظف مع تعليق إداري.
+5. POST /api/employees/devices/register/
+   - تسجيل الهاتف والمفتاح العام من التطبيق (ينشأ بحالة PENDING).
+6. GET /api/employees/admin/list/
+   - قائمة الموظفين للإدارة (الأدمن يرى فقط موظفي منشأته، والسوبر أدمن يرى الجميع).
+7. GET, PATCH /api/employees/admin/<id>/
+   - استعراض وتعديل بيانات الموظف.
+8. PATCH /api/employees/admin/<id>/status/
+   - [المدير]: قبول وتفعيل حساب الموظف أو رفضه أو تعليقه.
+9. PATCH /api/employees/admin/devices/<id>/status/
+   - [المدير]: اعتماد هاتف الموظف (ACTIVE) أو رفضه أو إلغاؤه (REVOKED).
+10. /api/employees/shifts/     (GET, POST, DELETE)
+   - تعيين وتعديل وردية الموظف.
+
+د. وحدة الحضور والانصراف والطلبات (/api/attendance/):
+---------------------------------------------------
+1. POST /api/attendance/record/
+   - تسجيل حركة البصمة (CHECK_IN, CHECK_OUT, BREAK_OUT, BREAK_IN):
+     * التحقق من تفعيل الموظف واعتماد هاتفه.
+     * فحص عدم التكرار (Idempotency Key).
+     * فحص الموقع الجغرافي بالـ GPS ومعادلة Haversine مقارنة بنطاق موقع العمل.
+     * التسجيل بوقت الخادم المعتمد حصراً.
+2. GET /api/attendance/my-history/
+   - استعراض سجل الحركات الشخصية للموظف عبر الموبايل.
+3. GET /api/attendance/admin/records/
+   - استعراض جميع حركات الحضور للمدير مع الفلترة بالموظف والتاريخ والحالة.
+4. GET /api/attendance/admin/dashboard-stats/
+   - إحصائيات سريعة للوحة التحكم (الحاضرون اليوم، الغائبون، الطلبات المعلقة، الأجهزة المعلقة).
+5. GET, POST /api/attendance/requests/
+   - تقديم طلب جديد من الموظف (مغادرة مبكرة، إجازة، تصحيح حضور، تغيير هاتف).
+6. POST /api/attendance/requests/<id>/decide/
+   - [المدير]: الموافقة أو الرفض على طلب الموظف مع تسجيل التعليق.
+7. GET /api/attendance/admin/audit-logs/
+   - [السوبر أدمن والمدير]: استعراض سجل الرقابة والتدقيق لجميع الحركات الإدارية.
