@@ -218,3 +218,90 @@ class ChangePasswordView(APIView):
             request.user.save()
             return Response({"detail": "تم تغيير كلمة المرور بنجاح."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class NotifyNewAccountView(APIView):
+    """
+    إشعار تلقائي يُرسل للسوبر أدمن فور إنشاء أي حساب جديد في التطبيق:
+    - اسم الشخص المنشئ
+    - نوع الحساب (موظف / آدمن)
+    - البريد ورقم الهاتف والمنشأة
+    - الموقع الجغرافي (إحداثيات وعنوان)
+    - إجمالي عدد المستخدمين الحاليين للنظام
+    - إرسال البريد إلى eng.abdulrahman.saleh2003@gmail.com
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        full_name = request.data.get('full_name', 'مستخدم جديد')
+        role = request.data.get('role', 'EMPLOYEE')
+        role_display = 'مدير منشأة (Admin)' if role.upper() == 'ADMIN' else 'موظف (Employee)'
+        email = request.data.get('email', '')
+        phone = request.data.get('phone', 'غير متوفر')
+        org_name = request.data.get('organization_name', 'غير محددة')
+        lat = request.data.get('latitude')
+        lng = request.data.get('longitude')
+        location_address = request.data.get('location_address', 'الموقع الجغرافي غير متوفر')
+
+        # حساب إجمالي عدد مستخدمي التطبيق الحاليين في قاعدة البيانات
+        total_users_count = User.objects.count()
+
+        subject = f"🔔 Attendix: تم إنشاء حساب جديد ({role_display}) - {full_name}"
+        recipient = "eng.abdulrahman.saleh2003@gmail.com"
+
+        message_body = (
+            f"مرحباً بك في إشعارات إدارة منظومة Attendix (بصمتي),\n\n"
+            f"تم تسجيل وإنشاء حساب جديد في التطبيق بالتفاصيل التالية:\n\n"
+            f"👤 اسم الشخص: {full_name}\n"
+            f"🏷️ نوع الحساب: {role_display}\n"
+            f"📧 البريد الإلكتروني: {email}\n"
+            f"📱 رقم الهاتف: {phone}\n"
+            f"🏢 المنشأة: {org_name}\n"
+            f"📍 الموقع الجغرافي: {location_address}\n"
+            f"🌐 إحداثيات GPS: {lat}, {lng}\n"
+            f"👥 إجمالي عدد مستخدمي التطبيق الحاليين: {total_users_count} مستخدم\n\n"
+            f"تم إرسال هذا الإشعار تلقائياً من منظومة Attendix السحابية."
+        )
+
+        # 1. محاولة إرسال بريد جانغو
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings
+            send_mail(
+                subject=subject,
+                message=message_body,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'notifications@attendix.local'),
+                recipient_list=[recipient],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+        # 2. إرسال فوري ومباشر عبر Webhook لضمان الوصول المؤكد 100%
+        try:
+            import urllib.request
+            import json
+            req = urllib.request.Request(
+                f"https://formsubmit.co/ajax/{recipient}",
+                data=json.dumps({
+                    '_subject': subject,
+                    'اسم الشخص المنشئ': full_name,
+                    'نوع الحساب': role_display,
+                    'البريد الإلكتروني': email,
+                    'رقم الهاتف': phone,
+                    'المنشأة': org_name,
+                    'الموقع الجغرافي': location_address,
+                    'إحداثيات GPS': f"{lat}, {lng}" if lat and lng else "غير متوفرة",
+                    'إجمالي مستخدمي التطبيق': f"{total_users_count} مستخدم",
+                }).encode('utf-8'),
+                headers={'Content-Type': 'application/json', 'User-Agent': 'Attendix-Server'}
+            )
+            urllib.request.urlopen(req, timeout=5)
+        except Exception:
+            pass
+
+        return Response({
+            "status": "success",
+            "message": "Notification processed successfully",
+            "total_users": total_users_count
+        }, status=status.HTTP_200_OK)

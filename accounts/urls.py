@@ -10,7 +10,8 @@ from .views import (
     AdminDeputyListCreateView,
     AdminDeputyDeleteView,
     UserProfileView,
-    ChangePasswordView
+    ChangePasswordView,
+    NotifyNewAccountView
 )
 
 app_name = 'accounts'
@@ -19,6 +20,7 @@ urlpatterns = [
     # المصادقة والتوكنات والتسجيل
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('register-admin/', AdminRegisterView.as_view(), name='register_admin'),
+    path('notify-new-account/', NotifyNewAccountView.as_view(), name='notify_new_account'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # الملف الشخصي وكلمة المرور
